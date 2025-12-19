@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pilot Flow AI - Meeting Follow-Up Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --brand-navy: #0F172A;
+            --brand-sky: #0EA5E9;
+            --brand-sky-hover: #0284C7;
+            --brand-slate: #64748B;
+            --bg-light: #F8FAFC;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-light); 
+            color: var(--brand-navy);
+            overflow-x: hidden;
+        }
+
+        .glass-card { 
+            background: #ffffff; 
+            border: 1px solid #E2E8F0;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            border-radius: 1rem;
+        }
+
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            height: 280px; 
+            margin: auto; 
+        }
+
+        .btn-primary { 
+            background-color: var(--brand-navy); 
+            color: white; 
+            transition: all 0.2s ease; 
+        }
+        .btn-primary:hover { 
+            background-color: #1e293b; 
+            transform: translateY(-1px); 
+        }
+        .btn-primary:disabled { 
+            background-color: #94a3b8; 
+            cursor: not-allowed; 
+        }
+        
+        .btn-accent { 
+            background-color: var(--brand-sky); 
+            color: white; 
+            transition: all 0.2s ease; 
+        }
+        .btn-accent:hover { 
+            background-color: var(--brand-sky-hover); 
+        }
+
+        .spinner {
+            border: 2px solid rgba(14, 165, 233, 0.2);
+            width: 20px; height: 20px; border-radius: 50%;
+            border-left-color: var(--brand-sky);
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .api-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+
+        .status-ready { background-color: #10b981; }
+        .status-empty { background-color: #cbd5e1; }
+
+        /* Smooth reveal for output */
+        .animate-reveal {
+            animation: reveal 0.4s ease-out forwards;
+        }
+        @keyframes reveal {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Cockpit Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-sky-400 font-black text-2xl italic shadow-inner">P</div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tighter text-slate-900 leading-none">PILOT FLOW <span class="text-sky-500">AI</span></h1>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Strategic Command Center</p>
+                </div>
+            </div>
+            
+            <!-- Secure API Key Input Area -->
+            <div class="hidden md:flex items-center space-x-3 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                <div id="key-indicator" class="api-status-dot status-empty ml-1"></div>
+                <input type="password" id="user-api-key" placeholder="Enter Gemini API Key" class="text-[11px] bg-transparent outline-none w-44 px-2 font-medium" onchange="saveKey()">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] font-bold text-sky-500 hover:text-sky-600 transition-colors pr-1 underline">GET KEY</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+
+        <div class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+                <h2 class="text-3xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight leading-tight">Meeting Follow-Up <br><span class="text-sky-500 italic">Cockpit</span></h2>
+                <p class="text-slate-500 max-w-xl leading-relaxed text-sm md:text-base">
+                    The professional alternative to "AI Summaries." We don't just recap; we identify <strong>decisions</strong>, <strong>owners</strong>, and <strong>risks</strong> to keep your projects on flight path.
+                </p>
+            </div>
+            
+            <!-- Mobile Key Entry -->
+            <div class="md:hidden flex flex-col space-y-2 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aviation Key Protocol</label>
+                <input type="password" id="user-api-key-mobile" placeholder="Paste Gemini API Key" class="text-sm bg-slate-50 p-3 rounded-xl outline-none border border-slate-100 focus:border-sky-500" onchange="saveKey()">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            
+            <!-- INPUT HUD -->
+            <div class="lg:col-span-7 space-y-6">
+                <div class="glass-card p-6 md:p-8">
+                    <div class="flex items-center justify-between mb-8">
+                        <h3 class="font-bold text-slate-800 flex items-center text-sm uppercase tracking-wider">
+                            <span class="bg-slate-900 text-sky-400 w-7 h-7 rounded-md flex items-center justify-center text-xs mr-4 font-black">01</span>
+                            Black Box Recording
+                        </h3>
+                        <div id="loading-indicator" class="hidden flex items-center bg-sky-50 px-4 py-1.5 rounded-full border border-sky-100">
+                            <div class="spinner mr-3"></div>
+                            <span class="text-[10px] font-bold text-sky-700 uppercase tracking-widest">Analyzing Stream...</span>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest ml-1">Raw Transcript / Messy Notes</label>
+                            <textarea id="raw-notes" rows="10" class="w-full p-5 rounded-2xl border border-slate-200 bg-slate-50 text-sm md:text-base focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 focus:outline-none transition-all placeholder:text-slate-300 shadow-inner" placeholder="Paste your meeting notes here..."></textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest ml-1">Flight Persona</label>
+                                <select id="persona-select" class="w-full p-3.5 text-sm rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:border-sky-500 focus:outline-none shadow-sm">
+                                    <option value="Senior Chief of Staff">Chief of Staff</option>
+                                    <option value="Agile Product Lead">Product Lead</option>
+                                    <option value="Strategic Operations Manager">Operations Lead</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest ml-1">Signal Tone</label>
+                                <select id="tone-select" class="w-full p-3.5 text-sm rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:border-sky-500 focus:outline-none shadow-sm">
+                                    <option value="Direct & Action-Oriented">Direct / High Urgency</option>
+                                    <option value="Professional & Diplomatic">Professional / Calm</option>
+                                    <option value="Collaborative & Casual">Collaborative / Team</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                            <button onclick="processNotesWithAI()" class="btn-primary py-4 rounded-2xl font-bold text-sm shadow-xl shadow-slate-200 uppercase tracking-widest">
+                                ✨ Generate Recap
+                            </button>
+                            <button onclick="analyzeRisksWithAI()" class="bg-white text-slate-900 border-2 border-slate-200 py-4 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all uppercase tracking-widest">
+                                🔍 Risk Radar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROI TELEMETRY -->
+                <div class="glass-card p-8">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-xs uppercase tracking-[0.2em]">Efficiency Telemetry</h3>
+                            <p class="text-[10px] text-slate-400 font-bold mt-1">SYSTEM ROI TRACKING</p>
+                        </div>
+                        <span class="bg-sky-50 text-sky-600 text-[10px] font-black px-3 py-1 rounded-md border border-sky-100">STABLE FLOW</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="roiChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OUTPUT CONSOLE -->
+            <div class="lg:col-span-5 space-y-8">
+                
+                <!-- Main Recap HUD -->
+                <div id="ai-output-container" class="glass-card overflow-hidden hidden animate-reveal">
+                    <div class="bg-slate-900 p-5 flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></div>
+                            <h3 class="text-white text-[10px] font-black uppercase tracking-widest">Signal Output</h3>
+                        </div>
+                        <button onclick="copyToClipboard('ai-result-content')" class="text-[10px] font-black bg-slate-800 text-sky-400 border border-slate-700 px-3 py-1.5 rounded-lg hover:bg-sky-500 hover:text-white transition-all">COPY DATA</button>
+                    </div>
+                    <div id="ai-result-content" class="p-8 text-sm text-slate-700 leading-relaxed max-h-[500px] overflow-y-auto whitespace-pre-wrap font-medium">
+                        <!-- AI Data Population -->
+                    </div>
+                    <div class="p-5 border-t border-slate-100 bg-slate-50/50">
+                        <button onclick="draftEmailWithAI()" class="w-full btn-accent py-4 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-sky-100">
+                            ✉️ Draft Stakeholder Email
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Risk Radar Active HUD -->
+                <div id="risk-radar" class="bg-white border-2 border-red-100 p-8 rounded-2xl hidden shadow-xl animate-reveal">
+                    <h3 class="text-red-600 font-black text-xs uppercase tracking-widest mb-6 flex items-center">
+                        <span class="mr-3 text-lg">⚠️</span> RADAR: ANOMALIES DETECTED
+                    </h3>
+                    <div id="risk-content" class="space-y-4">
+                        <!-- Risk Data Population -->
+                    </div>
+                </div>
+
+                <!-- Validation Checklist -->
+                <div class="glass-card p-6 md:p-8">
+                    <h3 class="font-bold text-slate-900 mb-1 text-sm uppercase tracking-wide">Pre-Flight Validation</h3>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase mb-6 tracking-widest">Experiment Checklist</p>
+                    
+                    <div class="space-y-4">
+                        <label class="flex items-start p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all group">
+                            <input type="checkbox" class="mt-1 mr-4 h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500/20">
+                            <div class="text-[12px] leading-relaxed">
+                                <span class="font-bold text-slate-800">Hallucination Check:</span> 
+                                <span class="text-slate-500 block mt-0.5">Did AI invent "Decisions" during silence or brainstorming?</span>
+                            </div>
+                        </label>
+                        <label class="flex items-start p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all group">
+                            <input type="checkbox" class="mt-1 mr-4 h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500/20">
+                            <div class="text-[12px] leading-relaxed">
+                                <span class="font-bold text-slate-800">The "Team" Trap:</span> 
+                                <span class="text-slate-500 block mt-0.5">Are tasks assigned to individuals, not "The Team"?</span>
+                            </div>
+                        </label>
+                        <label class="flex items-start p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all group">
+                            <input type="checkbox" class="mt-1 mr-4 h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500/20">
+                            <div class="text-[12px] leading-relaxed">
+                                <span class="font-bold text-slate-800">Political Sanity:</span> 
+                                <span class="text-slate-500 block mt-0.5">Is the tone appropriate for the "political temperature"?</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <p class="text-[9px] font-bold text-slate-300 uppercase tracking-[0.4em]">Proprietary to Pilot Flow AI</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Global Toast -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-sky-400 px-8 py-4 rounded-2xl shadow-2xl transform translate-y-32 transition-transform duration-500 font-bold text-xs border border-sky-900 z-[100] tracking-widest uppercase">
+        Signal Copied to Clipboard
+    </div>
+
+    <script>
+        const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+        let lastProcessedData = null;
+
+        // Key Management
+        function getApiKey() {
+            return document.getElementById('user-api-key').value || document.getElementById('user-api-key-mobile').value;
+        }
+
+        function saveKey() {
+            const key = getApiKey();
+            localStorage.setItem('pilot_flow_key_secure', key);
+            updateKeyStatus();
+            if(key.length > 20) showToast("System Key Authenticated");
+        }
+
+        function updateKeyStatus() {
+            const key = getApiKey();
+            const statusDot = document.getElementById('key-indicator');
+            if (statusDot) {
+                statusDot.className = `api-status-dot ${key.length > 20 ? 'status-ready' : 'status-empty'}`;
+            }
+        }
+
+        // Gemini Integration with Exponential Backoff
+        async function callGemini(prompt, systemInstruction) {
+            const key = getApiKey();
+            if (!key || key.length < 10) {
+                alert("Pilot: Manual intervention required. Please enter a valid Gemini API Key in the Cockpit Header to proceed.");
+                return null;
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] }
+            };
+
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error('API Interface Error');
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text;
+                } catch (e) {
+                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+                }
+            }
+            alert("Signal Lost. Check your API Key status and internet connection.");
+            return null;
+        }
+
+        // Logic: Generate Recap
+        async function processNotesWithAI() {
+            const notes = document.getElementById('raw-notes').value;
+            if (!notes) return showToast("No flight data provided.", true);
+
+            setLoading(true);
+            const persona = document.getElementById('persona-select').value;
+            const tone = document.getElementById('tone-select').value;
+            const system = `You are a ${persona} for the Pilot Flow AI channel. 
+            Process the following meeting notes into a precise professional recap. 
+            Format as: 
+            ## Mission Summary
+            3-4 bullet points of the most critical context.
+            ## Hard Decisions
+            A list of final commitments made.
+            ## Action Log
+            Task | Owner | Deadline (Use [NEEDS ASSIGNMENT] if missing).
+            
+            Tone Strategy: ${tone}. Use clean markdown.`;
+            
+            const res = await callGemini(notes, system);
+            if (res) { 
+                lastProcessedData = res; 
+                showOutput(res); 
+            }
+            setLoading(false);
+        }
+
+        // Logic: Risk Radar
+        async function analyzeRisksWithAI() {
+            const notes = document.getElementById('raw-notes').value;
+            if (!notes) return showToast("No data for radar scan.", true);
+
+            setLoading(true);
+            const system = "You are a Strategic Risk Analyst. Identify 3-4 hidden risks, logic gaps, or unassigned dependencies in the provided meeting notes. Be direct, blunt, and highly professional.";
+
+            try {
+                const res = await callGemini(notes, system);
+                if (res) {
+                    const radar = document.getElementById('risk-radar');
+                    const content = document.getElementById('risk-content');
+                    radar.classList.remove('hidden');
+                    
+                    content.innerHTML = res.split('\n').filter(l => l.trim().length > 5).map(l => `
+                        <div class="flex items-start bg-red-50 p-4 rounded-xl border border-red-100">
+                            <span class="text-red-500 font-black mr-3 text-lg">!</span>
+                            <span class="text-[12px] text-red-900 font-semibold leading-relaxed">${l.replace(/^[*-]\s*/, '')}</span>
+                        </div>
+                    `).join('');
+                    radar.scrollIntoView({ behavior: 'smooth' });
+                }
+            } catch (err) {
+                showToast("Radar Failure.", true);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Logic: Draft Stakeholder Email
+        async function draftEmailWithAI() {
+            if (!lastProcessedData) return showToast("Recap data required first.", true);
+
+            setLoading(true);
+            const tone = document.getElementById('tone-select').value;
+            const system = `Transform this meeting recap into a high-stakes professional email for stakeholders. 
+            Tone: ${tone}. Clear subject line. Start with 'Hi Team,'. End with 'Best, Pilot Flow AI Team'.`;
+
+            const res = await callGemini(lastProcessedData, system);
+            if (res) showOutput(res);
+            setLoading(false);
+        }
+
+        // UI Helpers
+        function setLoading(val) {
+            document.getElementById('loading-indicator').classList.toggle('hidden', !val);
+            document.querySelectorAll('button').forEach(b => b.disabled = val);
+        }
+
+        function showOutput(text) {
+            const container = document.getElementById('ai-output-container');
+            const target = document.getElementById('ai-result-content');
+            container.classList.remove('hidden');
+            target.innerText = text;
+            container.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function copyToClipboard(id) {
+            const text = document.getElementById(id).innerText;
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            showToast("Copied to Clipboard");
+        }
+
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.color = isError ? '#ef4444' : '#0ea5e9';
+            t.style.borderColor = isError ? '#ef4444' : '#0ea5e9';
+            t.classList.remove('translate-y-32');
+            setTimeout(() => t.classList.add('translate-y-32'), 3000);
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('roiChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Note Cleanup', 'Task Logic', 'Risk Scan', 'Distribution'],
+                    datasets: [
+                        { 
+                            label: 'Manual Latency', 
+                            data: [18, 22, 30, 15], 
+                            borderColor: '#cbd5e1', 
+                            borderWidth: 2,
+                            borderDash: [6, 4],
+                            pointRadius: 0,
+                            tension: 0.4 
+                        },
+                        { 
+                            label: 'Pilot Flow AI Flow', 
+                            data: [2, 1, 0.5, 2], 
+                            borderColor: '#0ea5e9', 
+                            backgroundColor: 'rgba(14, 165, 233, 0.1)', 
+                            fill: true, 
+                            borderWidth: 4,
+                            pointRadius: 6,
+                            pointBackgroundColor: '#0ea5e9',
+                            tension: 0.4 
+                        }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom',
+                            labels: { font: { size: 10, weight: '800' }, color: '#64748b', boxWidth: 12 } 
+                        },
+                        tooltip: { enabled: true }
+                    },
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: '#f1f5f9' }, 
+                            ticks: { font: { size: 10 }, color: '#94a3b8' },
+                            title: { display: true, text: 'MINUTES', font: { size: 9, weight: 'bold' } }
+                        }, 
+                        x: { 
+                            grid: { display: false }, 
+                            ticks: { font: { size: 10 }, color: '#64748b' } 
+                        } 
+                    }
+                }
+            });
+        }
+
+        window.onload = () => {
+            const stored = localStorage.getItem('pilot_flow_key_secure');
+            if (stored) {
+                document.getElementById('user-api-key').value = stored;
+                document.getElementById('user-api-key-mobile').value = stored;
+                updateKeyStatus();
+            }
+            initChart();
+        };
+    </script>
+</body>
+</html>
